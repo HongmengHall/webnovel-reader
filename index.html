@@ -59,7 +59,7 @@ body.nobook #scrollView,body.nobook #pagedView,body.nobook #head{display:none}
 #pLib{left:18px}
 #pSet{right:84px;transform:translateX(105%)}
 #pSet.open{transform:none}
-#pToc{position:absolute;top:calc(100% + 8px);bottom:auto;left:50%;translate:-50% 0;max-height:60vh;padding:6px;transform:none;opacity:0;transition:opacity .15s}
+#pToc{position:fixed;top:72px;bottom:auto;left:50%;translate:-50% 0;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 96px);padding:12px;transform:none;opacity:0;transition:opacity .15s;z-index:8;display:flex;flex-direction:column;overflow:hidden}
 #pToc.open{opacity:1}
 @media(max-width:700px){#tools{top:auto;bottom:34px;right:10px;flex-direction:row}#pSet{right:10px;top:auto;bottom:96px;max-height:70vh}#pLib{left:10px}#nav{gap:8px}}
 .panel.open{transform:none;visibility:visible}
@@ -93,7 +93,14 @@ input[type=color]{width:40px;height:30px;padding:0;border:1px solid var(--line);
 .seg button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--card))}
 .cnav{display:grid;grid-template-columns:42px 1fr 42px;gap:8px}
 .cnav button{height:42px;font-size:18px;padding:0}
-#chSel{height:42px;text-align:center;font-weight:600;margin:0}
+#chBtn2{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 12px;font-size:14px;font-weight:600;text-align:left}
+#chTxt2{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#tocQ{width:100%;padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+#toc{overflow:auto;flex:1;position:relative}
+#toc summary{padding:11px 8px;font-weight:600;cursor:pointer;color:var(--head);border-bottom:1px solid var(--line)}
+#toc summary small{float:right;color:var(--dim);font-weight:400}
+#toc details[open]>summary{color:var(--accent)}
+#toc button.cur{color:var(--accent);font-weight:600}
 .sw{appearance:none;width:44px;height:26px;border-radius:13px;background:color-mix(in srgb,var(--fg) 25%,transparent);position:relative;cursor:pointer;flex:none;border:0;transition:background .15s}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
 .sw:checked{background:var(--accent)}
@@ -112,7 +119,7 @@ input[type=color]{width:40px;height:30px;padding:0;border:1px solid var(--line);
     <button id="bPrev" class="plain">‹ Previous</button>
     <div id="chwrap">
       <button id="chBtn" aria-haspopup="true"><svg class="i" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span id="chTxt">Chapters</span><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-      <aside id="pToc" class="panel"><div id="toc"></div></aside>
+      <aside id="pToc" class="panel"><input id="tocQ" type="search" placeholder="Search by chapter number or title" aria-label="Search chapters" autocomplete="off"><div id="toc"></div></aside>
     </div>
     <button id="bNext" class="plain">Next ›</button>
   </nav>
@@ -137,7 +144,7 @@ input[type=color]{width:40px;height:30px;padding:0;border:1px solid var(--line);
     <button id="bClose" class="ib" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span></div>
   <div class="tabs"><button id="tSet" class="on">Settings</button><button id="tLib">Library</button></div>
   <section id="secSet">
-    <div class="cnav"><button id="bPrev2" aria-label="Previous chapter">‹</button><select id="chSel" aria-label="Chapter"></select><button id="bNext2" aria-label="Next chapter">›</button></div>
+    <div class="cnav"><button id="bPrev2" aria-label="Previous chapter">‹</button><button id="chBtn2" aria-haspopup="true" aria-label="Choose chapter"><span id="chTxt2"></span><svg class="i" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button><button id="bNext2" aria-label="Next chapter">›</button></div>
     <div class="card row2"><span>Continuous scroll</span><input type="checkbox" class="sw" id="swScroll"></div>
     <h4>Font</h4>
     <div class="seg" id="fontSeg"></div>
@@ -292,7 +299,7 @@ function save(ch,f,txt){
   curCh=ch;localStorage.setItem('p:'+B.id,JSON.stringify({ch,f}));
   $('#foot').textContent=txt||`${src.titles[ch]} · ${Math.round((ch+f)/src.count*100)}%`;
   $('#sub').textContent=$('#chTxt').textContent=src.titles[ch];
-  document.querySelectorAll('#bPrev,#bPrev2').forEach(b=>b.disabled=ch<=0);document.querySelectorAll('#bNext,#bNext2').forEach(b=>b.disabled=ch>=src.count-1);$('#chSel').value=ch;
+  document.querySelectorAll('#bPrev,#bPrev2').forEach(b=>b.disabled=ch<=0);document.querySelectorAll('#bNext,#bNext2').forEach(b=>b.disabled=ch>=src.count-1);$('#chTxt2').textContent=src.titles[ch];
 }
 const goto=(ch,f=0)=>{ttsStop();return S.mode==='paged'?openPaged(ch,f):startScroll(ch,f)};
 const secHTML=async i=>{try{return await src.load(i)}catch(e){return `<p><em>Could not load this section (${esc(e.message||'error')}).</em></p>`}};
@@ -384,8 +391,7 @@ async function openBook(id){
   catch(e){$('#title').textContent=B?B.name:'';alert('Could not open this file: '+e.message);return}
   B=b;localStorage.setItem('last',id);document.body.classList.remove('nobook');
   $('#title').textContent=src.title||b.name;
-  $('#chSel').innerHTML=src.titles.map((t,i)=>`<option value="${i}">${esc(t)}</option>`).join('');
-  $('#toc').innerHTML=src.titles.map((t,i)=>`<button data-i="${i}">${esc(t)}</button>`).join('');
+  buildGroups();
   const p=JSON.parse(localStorage.getItem('p:'+id)||'{"ch":0,"f":0}');
   goto(Math.min(p.ch,src.count-1),p.f);
 }
@@ -421,6 +427,51 @@ function ttsSay(p){
 }
 function ttsStop(){ttsOn=false;window.speechSynthesis?.cancel();document.querySelectorAll('.speaking').forEach(e=>e.classList.remove('speaking'));$('#swTts').checked=false}
 
+/* ---------- chapter picker: search + groups of 200 ---------- */
+const CH_RE=/(?:chapter|ch\.?|第)\s*(\d+)/i;
+let tocGroups=[],tocNums=[];
+const tocBtn=i=>`<button data-i="${i}"${i===curCh?' class="cur"':''}>${esc(src.titles[i])}</button>`;
+function buildGroups(){
+  const t=src.titles,size=200,nums=t.map(x=>{const m=CH_RE.exec(x);return m?+m[1]:null});
+  const numbered=nums.filter(n=>n!=null).length>t.length/2,gs=[];let last=0;
+  t.forEach((_,i)=>{
+    const g=numbered?(nums[i]!=null?Math.floor((nums[i]-1)/size):last):Math.floor(i/size);
+    last=g;(gs[g]=gs[g]||{g,idx:[]}).idx.push(i);
+  });
+  tocNums=nums;
+  tocGroups=gs.filter(Boolean).map(o=>{
+    const mx=Math.max(0,...o.idx.map(i=>nums[i]||0));
+    o.label=numbered&&mx?`Chapters ${o.g*size+1}–${Math.min(o.g*size+size,mx)}`:`Sections ${o.idx[0]+1}–${o.idx[o.idx.length-1]+1}`;
+    return o;
+  });
+}
+function renderToc(){
+  const q=$('#tocQ').value.trim().toLowerCase(),el=$('#toc'),T=src.titles;
+  if(q){
+    const hits=[];T.forEach((t,i)=>{if(t.toLowerCase().includes(q))hits.push(i)});
+    if(/^\d+$/.test(q))hits.sort((a,b)=>(tocNums[a]===+q?0:1)-(tocNums[b]===+q?0:1));
+    el.innerHTML=hits.length?hits.slice(0,100).map(tocBtn).join('')+(hits.length>100?`<p class="dim" style="padding:8px">${hits.length-100} more matches. Keep typing to narrow it down.</p>`:''):'<p class="dim" style="padding:8px">No chapter matches that.</p>';
+    return;
+  }
+  if(tocGroups.length<2){el.innerHTML=T.map((_,i)=>tocBtn(i)).join('');return}
+  const cg=tocGroups.findIndex(o=>o.idx.includes(curCh));
+  el.innerHTML=tocGroups.map((o,k)=>`<details data-k="${k}"${k===cg?' open':''}><summary>${o.label}<small>${o.idx.length}</small></summary><div class="gl">${k===cg?o.idx.map(tocBtn).join(''):''}</div></details>`).join('');
+}
+function toggleToc(){
+  const p=$('#pToc');
+  if(p.classList.contains('open')){p.classList.remove('open');return}
+  $('#tocQ').value='';renderToc();p.classList.add('open');
+  const c=$('#toc .cur');if(c)$('#toc').scrollTop=c.offsetTop-$('#toc').clientHeight/2;
+  $('#tocQ').focus({preventScroll:true});
+}
+$('#toc').addEventListener('toggle',e=>{
+  const d=e.target;if(!d.open)return;
+  const gl=d.querySelector('.gl');if(gl&&!gl.children.length)gl.innerHTML=tocGroups[+d.dataset.k].idx.map(tocBtn).join('');
+},true);
+$('#tocQ').oninput=renderToc;
+$('#tocQ').onkeydown=e=>{if(e.key==='Enter'&&$('#tocQ').value.trim()){const b=$('#toc button');if(b)b.click()}};
+addEventListener('keydown',e=>{if(e.key==='Escape')closeP(true)});
+
 /* ---------- panels + wiring ---------- */
 let pinned=false,curTab='set';
 const closeP=force=>document.querySelectorAll('.panel').forEach(p=>{if(force||!(pinned&&p.id==='pSet'))p.classList.remove('open')});
@@ -430,14 +481,14 @@ function openSet(t){const p=$('#pSet'),same=p.classList.contains('open')&&curTab
 $('#tSet').onclick=()=>tab('set');$('#tLib').onclick=()=>tab('lib');
 $('#bClose').onclick=()=>closeP(true);
 $('#bPin').onclick=()=>{pinned=!pinned;$('#bPin').setAttribute('aria-pressed',pinned)};
-$('#chSel').onchange=e=>goto(+e.target.value,0);
-$('#bLib').onclick=()=>openSet('lib');$('#chBtn').onclick=()=>{if(B)toggleP('#pToc')};$('#bSet').onclick=()=>openSet('set');
+$('#chBtn2').onclick=()=>{if(B)toggleToc()};
+$('#bLib').onclick=()=>openSet('lib');$('#chBtn').onclick=()=>{if(B)toggleToc()};$('#bSet').onclick=()=>openSet('set');
 $('#bMode').onclick=()=>setMode(S.mode==='scroll'?'paged':'scroll');
 $('#bFull').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
 $('#bPrev').onclick=$('#bPrev2').onclick=()=>curCh>0&&goto(curCh-1,0);
 $('#bNext').onclick=$('#bNext2').onclick=()=>curCh<src.count-1&&goto(curCh+1,0);
 document.addEventListener('click',e=>{const open=[...document.querySelectorAll('.panel.open')].filter(p=>!(pinned&&p.id==='pSet'));if(!e.target.closest('.panel,#tools,#chwrap')&&open.length){closeP();e.stopPropagation()}},true);
-$('#toc').onclick=e=>{const b=e.target.closest('button');if(b){closeP();goto(+b.dataset.i,0)}};
+$('#toc').onclick=e=>{const b=e.target.closest('button');if(b){$('#pToc').classList.remove('open');goto(+b.dataset.i,0)}};
 $('#libList').onclick=e=>{const o=e.target.closest('.open'),d=e.target.closest('.del');if(o)openBook(o.dataset.id);if(d)delBook(d.dataset.id)};
 $('#file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 addEventListener('dragover',e=>e.preventDefault());
